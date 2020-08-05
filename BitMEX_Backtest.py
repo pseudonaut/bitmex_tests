@@ -350,7 +350,7 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
 
     actions.close()
 
-def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingData, _startingCapital, _fee):
+def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coinSymbol, _fundingData, _startingCapital, _fee):
 
     xbt_usd = open("xbt_hourly_abstract.csv", "r")
     xbt_usd_data = xbt_usd.read().split('\n')
@@ -459,7 +459,7 @@ def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingDat
                     btc_per_contract = float(executed_orders[i][0]) / 5000
 
                 # Buy that many contracts, based on leverage.
-                contracts_owned = btc_owned / btc_per_contract * _leverage
+                contracts_owned = btc_owned / btc_per_contract * _longLeverage
                 fee = abs(contracts_owned * btc_per_contract * _fee)
                 btc_owned -= fee
                 print('XBT', btc_owned)
@@ -485,7 +485,7 @@ def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingDat
                     btc_per_contract = float(executed_orders[i][0]) / 5000
 
                 # Sell that many contracts, based on leverage.
-                contracts_owned = btc_owned / btc_per_contract * _leverage * -1
+                contracts_owned = btc_owned / btc_per_contract * _shortLeverage * -1
                 fee = abs(contracts_owned * btc_per_contract * _fee)
                 btc_owned -= fee
                 print('XBT', btc_owned)
@@ -597,8 +597,8 @@ def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingDat
                 if _coinSymbol == 'XRPUSD':
                     btc_per_contract = float(executed_orders[i][0]) / 5000
 
-                # Sell that many contracts, based on leverage.
-                contracts_owned = btc_owned / btc_per_contract * _leverage
+                # Buy that many contracts, based on leverage.
+                contracts_owned = btc_owned / btc_per_contract * _longLeverage
                 fee = abs(contracts_owned * btc_per_contract * _fee)
                 btc_owned -= fee
 
@@ -612,7 +612,6 @@ def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingDat
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
                 print()
-
 
             else:
 
@@ -717,7 +716,7 @@ def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingDat
                     btc_per_contract = float(executed_orders[i][0]) / 5000
 
                 # Sell that many contracts, based on leverage.
-                contracts_owned = btc_owned / btc_per_contract * _leverage * -1
+                contracts_owned = btc_owned / btc_per_contract * _shortLeverage * -1
                 fee = abs(contracts_owned * btc_per_contract * _fee)
                 btc_owned -= fee
 
@@ -740,6 +739,7 @@ def short_long_backtest(_leverage, _actions, _coinData, _coinSymbol, _fundingDat
 
 short_long_backtest(
     3,
+    2,
     "ichimoku_results_eth.csv",
     "eth_hourly_abstract.csv",
     "ETHUSD",
