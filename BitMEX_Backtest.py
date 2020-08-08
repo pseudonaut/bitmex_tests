@@ -104,9 +104,12 @@ fake_data = [
 # _fee: 0.00075 is base fee for BitMEX, increase this to account for slippage (e.g. 0.003)
 def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _fundingData, _startingCapital, _fee):
 
-    xbt_usd = open("xbt_hourly_abstract.csv", "r")
+    xbt_usd = open("xbt_hourly_abstract_v2.csv", "r")
     xbt_usd_data = xbt_usd.read().split('\n')
     xbt_arr = []
+
+    xbt_amount = []
+    usd_amount = []
 
     for line in xbt_usd_data:
         if (line == ''):
@@ -140,11 +143,9 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
             continue
         funding_arr.append(line.split(','))
 
-    flat_gains = []
-    short_gains = []
-    total_gains = []
-    funding_gains = []
-
+    xbt_amount = []
+    usd_amount = []
+    dates = []
     executed_orders = []
 
     def Average(list):
@@ -195,12 +196,14 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
             if executed_orders[i][3] == 'buy':
                 print() # Do nothing on first buy.
             else:
+                print('~')
                 print(
                     's.t.o. ' + _shortCoinSymbol +
                     ' @ ' + executed_orders[i][0] +
                     ' w/ XBTUSD @ ' + executed_orders[i][1] +
                     ' on ' + executed_orders[i][2]
                 )
+                print('~')
 
                 # Figure out BTC value per contract.
                 btc_per_contract = 0
@@ -216,9 +219,10 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
                 contracts_owned = btc_owned / btc_per_contract * _leverage * -1
                 fee = abs(contracts_owned * btc_per_contract * _fee)
                 btc_owned -= fee
+                print('~')
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
         # Handle remaining buy or sell, sequentially.
         else:
@@ -235,7 +239,50 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
 
                 # Iterate through each hour of the position (for funding rate calculation).
                 while dt_stop > dt_start:
-                    # print(dt_start)
+
+
+                    # Log the current position value
+                    btc_per_contract = 0
+
+                    xbt_price = 0
+                    coin_price = 0
+
+                    for k in short_arr:
+                        dt_short = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_short == dt_start:
+                            coin_price = float(k[3])
+
+                    for k in xbt_arr:
+                        dt_xbt = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_xbt == dt_start:
+                            xbt_price = float(k[3])
+
+                    # PnL Calculation
+                    if _shortCoinSymbol == 'ETHUSD' or _shortCoinSymbol == 'BCHUSD':
+                        btc_per_contract = float(coin_price) / 1000000
+                    if _shortCoinSymbol == 'XBTUSD':
+                        btc_per_contract = 1 / float(xbt_price)
+                    if _shortCoinSymbol == 'XRPUSD':
+                        btc_per_contract = float(coin_price) / 5000
+
+                    # PnL Calculation exiting short position
+                    entry_price = float(executed_orders[i - 1][0])
+                    delta = coin_price - entry_price
+                    btc_pnl = 0
+
+                    # PnL Calculation
+                    if _shortCoinSymbol == 'ETHUSD' or _shortCoinSymbol == 'BCHUSD':
+                        btc_pnl = delta * (.000001) * contracts_owned
+                    if _shortCoinSymbol == 'XBTUSD':
+                        btc_pnl = contracts_owned * (1 / entry_price - 1 / coin_price)
+                    if _shortCoinSymbol == 'XRPUSD':
+                        btc_pnl = delta * (.0002) * contracts_owned
+
+                    print(dt_start, btc_owned, btc_pnl, entry_price, xbt_price, coin_price)
+                    xbt_amount.append(btc_owned + btc_pnl)
+                    usd_amount.append((btc_owned + btc_pnl) * xbt_price)
+                    dates.append(dt_start)
+
                     for j in funding_arr:
                         # print(j)
                         funding_dt = datetime.strptime(j[0], '"%Y-%m-%dT%H:%M:%S.000Z"')
@@ -270,6 +317,7 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
                             funding = btc_per_contract * abs(contracts_owned) * float(j[3].replace('"',''))
 
                             # print('XBT', xbt_price, _shortCoinSymbol, short_coin_price)
+                            print('~')
                             print(
                                 'Funding Rate: ',
                                 funding,
@@ -277,6 +325,7 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
                                 ' on ',
                                 funding_dt
                             )
+                            print('~')
                             btc_owned += funding
                             funding_total += funding
 
@@ -304,6 +353,7 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
                 btc_owned -= fee
                 contracts_owned = 0
 
+                print('~')
                 print(
                     'b.t.c. ' + _shortCoinSymbol +
                     ' @ ' + executed_orders[i][0] +
@@ -313,18 +363,42 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
 
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
 
             else:
+                print('~')
                 print(
                     's.t.o. ' + _shortCoinSymbol +
                     ' @ ' + executed_orders[i][0] +
                     ' w/ XBTUSD @ ' + executed_orders[i][1] +
                     ' on ' + executed_orders[i][2]
                 )
+                print('~')
 
                 # Calculate BTC value, hourly rolling.
+                dt_start = datetime.strptime(executed_orders[i - 1][2], "%Y-%m-%d %H:%M:%S")
+                dt_stop = datetime.strptime(executed_orders[i][2], "%Y-%m-%d %H:%M:%S")
+
+                # Unlikely to catch immediate funding the first hour of position.
+                dt_start += timedelta(hours=1)
+
+                # Iterate through each hour of the position (for funding rate calculation).
+                while dt_stop > dt_start:
+
+                    xbt_price = 0
+
+                    for k in xbt_arr:
+                        dt_xbt = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_xbt == dt_start:
+                            xbt_price = float(k[3])
+
+                    print(dt_start, btc_owned, executed_orders[i][1], xbt_price)
+                    xbt_amount.append(btc_owned)
+                    usd_amount.append(btc_owned * xbt_price)
+                    dates.append(dt_start)
+
+                    dt_start += timedelta(hours=1)
 
                 # Figure out BTC value per contract.
                 btc_per_contract = 0
@@ -340,21 +414,30 @@ def short_flat_backtest(_leverage, _actions, _shortCoinData, _shortCoinSymbol, _
                 contracts_owned = btc_owned / btc_per_contract * _leverage * -1
                 fee = abs(contracts_owned * btc_per_contract * _fee)
                 btc_owned -= fee
+                print('~')
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
     print('XBT Final', btc_owned)
     print('Funding Total', funding_total, 'XBT')
     print('XBT to USD', btc_owned * float(executed_orders[len(executed_orders) - 1][1]))
+    print()
+
+    for i in range(0, len(xbt_amount)):
+        print(dates[i], xbt_amount[i], usd_amount[i])
 
     actions.close()
 
 def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coinSymbol, _fundingData, _startingCapital, _fee):
 
-    xbt_usd = open("xbt_hourly_abstract.csv", "r")
+    xbt_usd = open("xbt_hourly_abstract_v2.csv", "r")
     xbt_usd_data = xbt_usd.read().split('\n')
     xbt_arr = []
+
+    xbt_amount = []
+    usd_amount = []
+    dates = []
 
     for line in xbt_usd_data:
         if (line == ''):
@@ -388,15 +471,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
             continue
         funding_arr.append(line.split(','))
 
-    flat_gains = []
-    short_gains = []
-    total_gains = []
-    funding_gains = []
-
     executed_orders = []
-
-    def Average(list):
-        return sum(list) / len(list)
 
     # Iterate through actions, and compare each buy/sell action against
     # the correct date and price for <CRYPTO> when flat (on a buy) or for
@@ -441,12 +516,14 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
             firstBuy = False
             firstSell = False
             if executed_orders[i][3] == 'buy':
+                print('~')
                 print(
                     'b.t.o. ' + _coinSymbol +
                     ' @ ' + executed_orders[i][0] +
                     ' w/ XBTUSD @ ' + executed_orders[i][1] +
                     ' on ' + executed_orders[i][2]
                 )
+                print('~')
 
                 # Figure out BTC value per contract.
                 btc_per_contract = 0
@@ -464,15 +541,21 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                 btc_owned -= fee
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
+
+                # Log the current position value
+                xbt_amount.append(btc_owned)
+                usd_amount.append(btc_owned * float(executed_orders[i][1]) )
 
             else:
+                print('~')
                 print(
                     's.t.o. ' + _coinSymbol +
                     ' @ ' + executed_orders[i][0] +
                     ' w/ XBTUSD @ ' + executed_orders[i][1] +
                     ' on ' + executed_orders[i][2]
                 )
+                print('~')
 
                 # Figure out BTC value per contract.
                 btc_per_contract = 0
@@ -490,7 +573,11 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                 btc_owned -= fee
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
+
+                # Log the current position value
+                xbt_amount.append(btc_owned)
+                usd_amount.append(btc_owned * float(executed_orders[i][1]) )
 
         # Handle remaining buy or sell, sequentially.
         else:
@@ -507,6 +594,52 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
 
                 # Iterate through each hour of the position (for funding rate calculation).
                 while dt_stop > dt_start:
+
+                    # Log the current position value
+                    btc_per_contract = 0
+
+                    xbt_price = 0
+                    coin_price = 0
+
+                    for k in short_arr:
+                        dt_short = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_short == dt_start:
+                            coin_price = float(k[3])
+
+                    for k in xbt_arr:
+                        dt_xbt = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_xbt == dt_start:
+                            xbt_price = float(k[3])
+
+                    # PnL Calculation
+                    if _coinSymbol == 'ETHUSD' or _coinSymbol == 'BCHUSD':
+                        btc_per_contract = float(coin_price) / 1000000
+                    if _coinSymbol == 'XBTUSD':
+                        btc_per_contract = 1 / float(xbt_price)
+                    if _coinSymbol == 'XRPUSD':
+                        btc_per_contract = float(coin_price) / 5000
+
+                    # PnL Calculation current value.
+                    entry_price = float(executed_orders[i - 1][0])
+                    delta = coin_price - entry_price
+                    btc_pnl = 0
+
+                    # PnL Calculation continued.
+                    if _coinSymbol == 'ETHUSD' or _coinSymbol == 'BCHUSD':
+                        btc_pnl = delta * (.000001) * contracts_owned
+                    if _coinSymbol == 'XBTUSD':
+                        btc_pnl = contracts_owned * (1 / entry_price - 1 / coin_price)
+                    if _coinSymbol == 'XRPUSD':
+                        btc_pnl = delta * (.0002) * contracts_owned
+
+
+                    print(dt_start, btc_owned, btc_pnl, entry_price, xbt_price, coin_price)
+
+                    xbt_amount.append(btc_owned + btc_pnl)
+                    usd_amount.append((btc_owned + btc_pnl) * xbt_price)
+                    dates.append(dt_start)
+
+
                     # print(dt_start)
                     for j in funding_arr:
                         # print(j)
@@ -576,6 +709,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                 btc_owned -= fee
                 contracts_owned = 0
 
+                print('~')
                 print(
                     'b.t.c. ' + _coinSymbol +
                     ' @ ' + executed_orders[i][0] +
@@ -585,7 +719,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
 
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
                 # Figure out BTC value per contract.
                 btc_per_contract = 0
@@ -611,7 +745,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
 
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
             else:
 
@@ -624,6 +758,49 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
 
                 # Iterate through each hour of the position (for funding rate calculation).
                 while dt_stop > dt_start:
+
+                    # Log the current position value
+                    btc_per_contract = 0
+
+                    xbt_price = 0
+                    coin_price = 0
+
+                    for k in short_arr:
+                        dt_short = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_short == dt_start:
+                            coin_price = float(k[3])
+
+                    for k in xbt_arr:
+                        dt_xbt = datetime.strptime(k[0], "%Y-%m-%d %H:%M:%S")
+                        if dt_xbt == dt_start:
+                            xbt_price = float(k[3])
+
+                    # PnL Calculation
+                    if _coinSymbol == 'ETHUSD' or _coinSymbol == 'BCHUSD':
+                        btc_per_contract = float(coin_price) / 1000000
+                    if _coinSymbol == 'XBTUSD':
+                        btc_per_contract = 1 / float(xbt_price)
+                    if _coinSymbol == 'XRPUSD':
+                        btc_per_contract = float(coin_price) / 5000
+
+                    # PnL Calculation exiting short position
+                    entry_price = float(executed_orders[i - 1][0])
+                    delta = coin_price - entry_price
+                    btc_pnl = 0
+
+                    # PnL Calculation
+                    if _coinSymbol == 'ETHUSD' or _coinSymbol == 'BCHUSD':
+                        btc_pnl = delta * (.000001) * contracts_owned
+                    if _coinSymbol == 'XBTUSD':
+                        btc_pnl = contracts_owned * (1 / entry_price - 1 / coin_price)
+                    if _coinSymbol == 'XRPUSD':
+                        btc_pnl = delta * (.0002) * contracts_owned
+
+                    print(dt_start, btc_owned, btc_pnl, entry_price, xbt_price, coin_price)
+                    xbt_amount.append(btc_owned + btc_pnl)
+                    usd_amount.append((btc_owned + btc_pnl) * xbt_price)
+                    dates.append(dt_start)
+
                     # print(dt_start)
                     for j in funding_arr:
                         # print(j)
@@ -659,6 +836,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                             funding = btc_per_contract * abs(contracts_owned) * float(j[3].replace('"', '')) * -1
 
                             # print('XBT', xbt_price, _coinSymbol, short_coin_price)
+                            print('~')
                             print(
                                 'Funding Rate: ',
                                 funding,
@@ -666,6 +844,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                                 ' on ',
                                 funding_dt
                             )
+                            print('~')
                             btc_owned += funding
                             funding_total += funding
 
@@ -692,6 +871,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                 btc_owned -= fee
                 contracts_owned = 0
 
+                print('~')
                 print(
                     's.t.c. ' + _coinSymbol +
                     ' @ ' + executed_orders[i][0] +
@@ -701,7 +881,7 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
 
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
                 # Calculate BTC value, hourly rolling.
 
@@ -728,31 +908,25 @@ def short_long_backtest(_shortLeverage, _longLeverage, _actions, _coinData, _coi
                 )
                 print('XBT', btc_owned)
                 print('Contracts', contracts_owned)
-                print()
+                print('~')
 
     print('XBT Final', btc_owned)
     print('Funding Total', funding_total, 'XBT')
     print('XBT to USD', btc_owned * float(executed_orders[len(executed_orders) - 1][1]))
+
+    for i in range(0, len(xbt_amount)):
+        print(dates[i], xbt_amount[i], usd_amount[i])
 
     actions.close()
 
 
 short_long_backtest(
     3,
-    2,
-    "ichimoku_results_eth.csv",
-    "eth_hourly_abstract.csv",
-    "ETHUSD",
-    "eth_funding_history.csv",
+    3,
+    "ichimoku_results_xrp.csv",
+    "xrp_hourly_abstract_v2.csv",
+    "XRPUSD",
+    "xrp_funding_history.csv",
     10000,
     0.002
 )
-
-# "ResultsClosedPositions_BTC_1h.csv"
-# "ResultsClosedPositions_BCH_1h.csv"
-# "ResultsClosedPositions_ETH_1h.csv"
-# "ResultsClosedPositions_LTC_1h.csv"
-# "xrp_hourly_2020.csv"
-# "xbt_hourly_2019_to_2020.csv"
-# "eth_hourly_2019_to_2020.csv"
-# "bch_hourly_2020.csv"
