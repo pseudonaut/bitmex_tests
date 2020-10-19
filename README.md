@@ -6,18 +6,21 @@
 - [`setGreeting(string _greeting)`](#Greeter-setGreeting-string-)
 
 
-# Function `constructor(string _greeting, uint256 _value)` {[#Greeter-constructor-string-uint256-](#Greeter-constructor-string-uint256-) }
+# Function `constructor(string _greeting, uint256 _value)` 
+{[#Greeter-constructor-string-uint256-](#Greeter-constructor-string-uint256-) }
 No description
 ## Parameters:
 - `_greeting`: The number of rings from dendrochronological sample
 
 - `_value`: The randomly generated value.
-# Function `greet() → string` {[#Greeter-greet--](#Greeter-greet--) }
+# Function `greet() → string` 
+{[#Greeter-greet--](#Greeter-greet--) }
 View only function. 
 
 ## Return Values:
 - greeting value
-# Function `setGreeting(string _greeting)` {[#Greeter-setGreeting-string-](#Greeter-setGreeting-string-) }
+# Function `setGreeting(string _greeting)` 
+{[#Greeter-setGreeting-string-](#Greeter-setGreeting-string-) }
 The input value can be anything.
 
 ## Parameters:
